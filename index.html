@@ -109,6 +109,418 @@
             font-size: 12px;
             color: #475569;
         }
+
+        .refresh-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 45px;
+            height: 45px;
+            background: #6366f1;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+            z-index: 100;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .refresh-btn:active { transform: scale(0.9); }
+        .refresh-btn.disabled {
+            background: #cbd5e1;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+        .cooldown-text {
+            font-size: 14px;
+            font-weight: 800;
+        }
+    </style>
+</head>
+<body>
+
+<div id="app" class="container max-w-md mx-auto min-h-screen px-4 pb-24">
+    <!-- Global Refresh Button with 5s Cooldown -->
+    <div id="refresh-control" class="refresh-btn" onclick="triggerRefresh()">
+        <svg id="refresh-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+            <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
+            <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
+        </svg>
+        <span id="refresh-timer" class="cooldown-text hidden">5</span>
+    </div>
+
+    <header class="py-6 flex justify-between items-center">
+        <div>
+            <h1 class="text-2xl font-black text-indigo-600 tracking-tight">Medha</h1>
+            <p class="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Presence v2.3</p>
+        </div>
+        <div id="geo-chip" class="bg-gray-100 text-gray-500 px-3 py-1 rounded-full text-[9px] font-bold uppercase">GPS: ?</div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <div class="flex p-1.5 mb-6 bg-gray-200/50 backdrop-blur rounded-full">
+        <button onclick="switchTab('student')" id="tab-student" class="flex-1 py-2 text-[10px] font-black rounded-full transition-all bg-white shadow-sm">STUDENT</button>
+        <button onclick="switchTab('faculty')" id="tab-faculty" class="flex-1 py-2 text-[10px] font-black rounded-full transition-all text-gray-500">FACULTY</button>
+        <button onclick="switchTab('report')" id="tab-report" class="flex-1 py-2 text-[10px] font-black rounded-full transition-all text-gray-500">REPORT</button>
+    </div>
+
+    <!-- STUDENT VIEW -->
+    <div id="view-student" class="space-y-6">
+        <div id="reg-section" class="glass-card p-6 hidden">
+            <h3 class="text-xs font-black mb-4 uppercase text-gray-500 text-center">Initial Enrollment</h3>
+            <div id="video-container" class="mb-6">
+                <video id="video-reg" autoplay muted playsinline></video>
+            </div>
+            <div class="space-y-3">
+                <input type="text" id="reg-name" class="form-control btn-capsule h-12" placeholder="Student Name">
+                <input type="text" id="reg-roll" class="form-control btn-capsule h-12" placeholder="Roll Number">
+                <p class="text-[10px] font-bold text-gray-400 uppercase">Section</p>
+                <div class="pill-select" id="reg-section-pills">
+                    <div class="pill-item" onclick="selectPill(this, 'reg-sec')">A</div>
+                    <div class="pill-item" onclick="selectPill(this, 'reg-sec')">B</div>
+                    <div class="pill-item" onclick="selectPill(this, 'reg-sec')">C</div>
+                    <div class="pill-item" onclick="selectPill(this, 'reg-sec')">D</div>
+                </div>
+                <button onclick="registerDevice()" class="btn btn-indigo-600 bg-indigo-600 text-white w-full btn-capsule py-3.5 mt-4">Save Biometrics</button>
+            </div>
+        </div>
+
+        <div id="verify-section" class="glass-card p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xs font-black uppercase text-gray-500">Biometric Check</h3>
+                <span id="student-meta" class="text-[9px] bg-indigo-50 text-indigo-600 px-2 py-1 rounded font-bold">---</span>
+            </div>
+            <div id="video-container" class="mb-6">
+                <video id="video-verify" autoplay muted playsinline></video>
+            </div>
+            <div class="space-y-4">
+                <input type="text" id="session-otp" class="form-control btn-capsule text-center text-2xl font-black tracking-[0.8em] h-14" placeholder="0000" maxlength="4">
+                <button onclick="verifyPresence()" id="btn-verify" class="btn btn-indigo-600 bg-indigo-600 text-white w-full btn-capsule py-3.5">Verify Presence</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- FACULTY VIEW -->
+    <div id="view-faculty" class="hidden space-y-4">
+        <div class="glass-card p-6">
+            <h3 class="text-[10px] font-black text-gray-400 uppercase mb-4">Class Config</h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="text-[9px] font-bold text-gray-500 uppercase mb-2 block">Date</label>
+                    <input type="date" id="fac-date" class="w-full h-11">
+                </div>
+                <div>
+                    <label class="text-[9px] font-bold text-gray-500 uppercase mb-2 block">Subject</label>
+                    <div class="pill-select" id="fac-sub-pills">
+                        <div class="pill-item" onclick="selectPill(this, 'fac-sub')">S1</div>
+                        <div class="pill-item" onclick="selectPill(this, 'fac-sub')">S2</div>
+                        <div class="pill-item" onclick="selectPill(this, 'fac-sub')">S3</div>
+                        <div class="pill-item" onclick="selectPill(this, 'fac-sub')">S4</div>
+                        <div class="pill-item" onclick="selectPill(this, 'fac-sub')">S5</div>
+                        <div class="pill-item" onclick="selectPill(this, 'fac-sub')">S6</div>
+                        <div class="pill-item" onclick="selectPill(this, 'fac-sub')">S7</div>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-[9px] font-bold text-gray-500 uppercase mb-2 block">Slot</label>
+                        <div class="pill-select" id="fac-slot-pills">
+                            <div class="pill-item" onclick="selectPill(this, 'fac-slot')">9-10</div>
+                            <div class="pill-item" onclick="selectPill(this, 'fac-slot')">10-11</div>
+                            <div class="pill-item" onclick="selectPill(this, 'fac-slot')">11-12</div>
+                            <div class="pill-item" onclick="selectPill(this, 'fac-slot')">1-2</div>
+                            <div class="pill-item" onclick="selectPill(this, 'fac-slot')">2-3</div>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-[9px] font-bold text-gray-500 uppercase mb-2 block">Section</label>
+                        <div class="pill-select" id="fac-sec-pills">
+                            <div class="pill-item" onclick="selectPill(this, 'fac-sec')">A</div>
+                            <div class="pill-item" onclick="selectPill(this, 'fac-sec')">B</div>
+                            <div class="pill-item" onclick="selectPill(this, 'fac-sec')">C</div>
+                            <div class="pill-item" onclick="selectPill(this, 'fac-sec')">D</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-6 flex items-center justify-between p-4 bg-indigo-600 rounded-2xl text-white">
+                <div>
+                    <p class="text-[8px] font-bold opacity-60 uppercase">Session Code</p>
+                    <span id="display-otp" class="text-3xl font-black tracking-tight">----</span>
+                </div>
+                <button onclick="startSession()" id="btn-session" class="bg-white text-indigo-600 px-5 py-2 rounded-full font-black text-xs">ACTIVATE</button>
+            </div>
+            <div class="grid grid-cols-2 gap-2 mt-4">
+                <button onclick="saveAndClear()" class="btn btn-success btn-capsule py-2.5 text-[9px]">FINALIZE</button>
+                <button onclick="cleanupResources()" class="btn btn-outline-danger btn-capsule py-2.5 text-[9px]">CANCEL</button>
+            </div>
+        </div>
+
+        <div class="glass-card p-5">
+            <div class="flex justify-between items-center mb-4">
+                <h4 class="text-xs font-black text-gray-400 uppercase">Live Grid</h4>
+                <span id="count-verified" class="bg-green-100 text-green-700 text-[10px] px-2 py-1 rounded-full font-bold">0 PRESENT</span>
+            </div>
+            <div id="faculty-grid" class="faculty-grid"></div>
+        </div>
+    </div>
+
+    <!-- REPORT VIEW -->
+    <div id="view-report" class="hidden space-y-4">
+        <div class="glass-card p-5">
+            <h3 class="text-xs font-black text-gray-400 uppercase mb-4">Attendance Report</h3>
+            <div class="flex gap-2 mb-4">
+                <input type="date" id="report-date" class="form-control btn-capsule text-xs h-10">
+                <button onclick="fetchReports()" class="btn btn-indigo-600 bg-indigo-600 text-white btn-capsule px-4 text-xs">Search</button>
+            </div>
+            <div class="overflow-hidden rounded-xl border border-gray-100">
+                <table class="w-full report-table">
+                    <thead>
+                        <tr>
+                            <th class="text-left">Student</th>
+                            <th class="text-center">Sub</th>
+                            <th class="text-center">Slot</th>
+                            <th class="text-center">Sec</th>
+                        </tr>
+                    </thead>
+                    <tbody id="report-body">
+                        <tr><td colspan="4" class="text-center text-gray-400 py-10">Search date to view history</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="fixed bottom-24 left-1/2 -translate-x-1/2 bg-gray-900/90 backdrop-blur-md text-white px-6 py-2.5 rounded-full text-[10px] font-black uppercase opacity-0 pointer-events-none transition-all z-50">
+        Ready
+    </div>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getFirestore, doc, setDoc, getDoc, collection, query, onSnapshot, writeBatch, serverTimestamp, getDocs, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyBXECIZa45dq-o8Ka4G9Y1N7nll7cyli2U",
+        authDomain: "stuattnd.firebaseapp.com",
+        projectId: "stuattnd",
+        storageBucket: "stuattnd.firebasestorage.app",
+        messagingSenderId: "511533506488",
+        appId: "1:511533506488:web:aca4de3d513915d012f94d",
+        measurementId: "G-9PZZM5LFKX"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+    const appId = "stuattnd_app";
+
+    let localStream = null;
+    let selections = { 'reg-sec': '', 'fac-sub': '', 'fac-slot': '', 'fac-sec': '' };
+    let refreshCooldown = false;
+
+    async function init() {
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('fac-date').value = today;
+        document.getElementById('report-date').value = today;
+        
+        try {
+            const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
+            await Promise.all([
+                faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
+                faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+                faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+            ]);
+            checkState();
+            updateGPSStatus();
+        } catch (e) { showToast("AI Engine Offline"); }
+
+        onAuthStateChanged(auth, (u) => {
+            if (!u) signInAnonymously(auth);
+            else syncFacultyGrid();
+        });
+    }
+
+    // Refresh Logic (5s Delay)
+    window.triggerRefresh = () => {
+        if (refreshCooldown) return;
+        
+        // Disable UI
+        refreshCooldown = true;
+        const btn = document.getElementById('refresh-control');
+        const icon = document.getElementById('refresh-icon');
+        const timer = document.getElementById('refresh-timer');
+        
+        btn.classList.add('disabled');
+        icon.classList.add('hidden');
+        timer.classList.remove('hidden');
+
+        // Logic Re-trigger
+        checkState();
+        updateGPSStatus();
+        showToast("System Refreshing...");
+
+        // 5s Countdown
+        let count = 5;
+        const interval = setInterval(() => {
+            count--;
+            timer.innerText = count;
+            if (count <= 0) {
+                clearInterval(interval);
+                refreshCooldown = false;
+                btn.classList.remove('disabled');
+                icon.classList.remove('hidden');
+                timer.classList.add('hidden');
+                timer.innerText = "5";
+            }
+        }, 1000);
+    };
+
+    async function updateGPSStatus() {
+        const chip = document.getElementById('geo-chip');
+        try {
+            const pos = await getGeo();
+            if (pos.lat === 0) throw "Off";
+            chip.innerText = `GPS: READY`;
+            chip.classList.replace('bg-gray-100', 'bg-green-100');
+            chip.classList.replace('text-gray-500', 'text-green-600');
+        } catch(e) {
+            chip.innerText = "GPS: ERROR";
+            chip.classList.replace('bg-gray-100', 'bg-red-100');
+            chip.classList.replace('text-gray-500', 'text-red-600');
+        }
+    }
+
+    window.selectPill = (el, type) => {
+        el.parentElement.querySelectorAll('.pill-item').forEach(p => p.classList.remove('active'));
+        el.classList.add('active');
+        selections[type] = el.innerText;
+    };
+
+    function checkState() {
+        const roll = localStorage.getItem('medha_roll');
+        const sec = localStorage.getItem('medha_sec');
+        if (!roll) {
+            document.getElementById('reg-section').classList.remove('hidden');
+            document.getElementById('verify-section').classList.add('hidden');
+            startCamera('video-reg');
+        } else {
+            document.getElementById('student-meta').innerText = `${roll} • SEC ${sec}`;
+            document.getElementById('reg-section').classList.add('hidden');
+            document.getElementById('verify-section').classList.remove('hidden');
+        }
+    }
+
+    async function startCamera(id) {
+        stopCamera();
+        try {
+            localStream = await navigator.mediaDevices.getUserMedia({ 
+                video: { facingMode: 'user', width: 400, height: 400 } 
+            });
+            const el = document.getElementById(id);
+            if(el) el.srcObject = localStream;
+        } catch (err) { showToast("Camera Access Required"); }
+    }
+
+    function stopCamera() {
+        if (localStream) {
+            localStream.getTracks().forEach(t => t.stop());
+            localStream = null;
+        }
+    }
+
+    // --- Actions ---
+    window.registerDevice = async () => {
+        const name = document.getElementById('reg-name').value.trim();
+        const roll = document.getElementById('reg-roll').value.trim().toUpperCase();
+        const sec = selections['reg-sec'];
+        if (!name || !roll || !sec) return showToast("Enter All Info");
+
+        showToast("Processing...");
+        const video = document.getElementById('video-reg');
+        const detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
+        if (!detection) return showToast("No Face Detected");
+
+        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', roll), {
+            name, roll, sec, faceDescriptor: Arr            overflow: hidden; 
+            border: 4px solid #fff;
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.2);
+        }
+        video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+        
+        .pill-select { display: flex; flex-wrap: wrap; gap: 6px; }
+        .pill-item {
+            padding: 6px 12px;
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            border-radius: 50px;
+            font-size: 10px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #64748b;
+        }
+        .pill-item.active {
+            background: #6366f1;
+            color: white;
+            border-color: #6366f1;
+            box-shadow: 0 4px 6px -1px rgba(99, 102, 241, 0.4);
+        }
+
+        .faculty-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+        .student-tile {
+            background: #fff;
+            border-radius: 12px;
+            padding: 6px;
+            text-align: center;
+            font-size: 10px;
+            border: 1px solid #f1f5f9;
+            position: relative;
+        }
+        .student-tile img {
+            width: 100%;
+            aspect-ratio: 1/1;
+            object-fit: cover;
+            border-radius: 8px;
+            margin-bottom: 4px;
+            border: 1px solid #eee;
+        }
+        .verified-badge {
+            position: absolute;
+            top: -4px;
+            right: -4px;
+            background: #10b981;
+            color: white;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            font-size: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid white;
+            z-index: 10;
+        }
+        
+        .report-table { font-size: 11px; }
+        .report-table th { background: #f8fafc; text-transform: uppercase; color: #64748b; padding: 10px; }
+        .report-table td { padding: 8px 10px; border-bottom: 1px solid #f1f5f9; }
+
+        input[type="date"] {
+            border: 1px solid #e2e8f0;
+            padding: 8px 12px;
+            border-radius: 50px;
+            font-size: 12px;
+            color: #475569;
+        }
     </style>
 </head>
 <body>
