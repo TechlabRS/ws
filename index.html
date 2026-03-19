@@ -1,1 +1,384 @@
-<h1>Hello Welcome All!</h1>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Medha Presence - Smart Attendance</title>
+    
+    <!-- Bootstrap 5 & Tailwind -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Face-API.js -->
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    
+    <style>
+        :root { --primary: #6366f1; }
+        body { 
+            background-color: #f1f5f9; 
+            font-family: 'Inter', sans-serif; 
+            overscroll-behavior: none;
+        }
+        /* Mobile-First Adjustments for 5.5" Screens */
+        .btn-capsule { border-radius: 50px; font-weight: 600; font-size: 0.875rem; }
+        .glass-card { 
+            background: white; 
+            border-radius: 16px; 
+            border: 1px solid rgba(0,0,0,0.05); 
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        }
+        #video-container { 
+            position: relative; 
+            width: 100%; 
+            max-width: 320px; 
+            margin: auto; 
+            aspect-ratio: 1/1; 
+            background: #1e293b; 
+            border-radius: 50%; 
+            overflow: hidden; 
+            border: 4px solid white;
+        }
+        #video { width: 100%; height: 100%; object-fit: cover; }
+        
+        /* High Density Grid for Faculty */
+        .faculty-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+        }
+        @media (min-width: 400px) { .faculty-grid { grid-template-columns: repeat(5, 1fr); } }
+        @media (min-width: 600px) { .faculty-grid { grid-template-columns: repeat(6, 1fr); } }
+
+        .student-tile {
+            aspect-ratio: 1/1.3;
+            background: #fff;
+            border-radius: 8px;
+            padding: 4px;
+            text-align: center;
+            font-size: 9px;
+            border: 1px solid #e2e8f0;
+            position: relative;
+        }
+        .student-tile img {
+            width: 100%;
+            aspect-ratio: 1/1;
+            object-fit: cover;
+            border-radius: 4px;
+            margin-bottom: 2px;
+        }
+        .verified-badge {
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            background: #22c55e;
+            color: white;
+            border-radius: 50%;
+            width: 14px;
+            height: 14px;
+            font-size: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid white;
+        }
+    </style>
+</head>
+<body>
+
+<div id="app" class="container max-w-md mx-auto min-h-screen px-3 pb-24">
+    <!-- Header -->
+    <header class="py-4 flex justify-between items-center">
+        <div>
+            <h1 class="text-xl font-bold text-indigo-600">Medha Presence</h1>
+            <p id="sub-header" class="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Secure Biometric Sync</p>
+        </div>
+        <div id="connection-status" class="w-2 h-2 rounded-full bg-green-500"></div>
+    </header>
+
+    <!-- Nav -->
+    <div class="flex p-1 mb-4 bg-gray-200 rounded-full">
+        <button onclick="switchTab('student')" id="tab-student" class="flex-1 py-1.5 text-xs font-bold rounded-full transition-all bg-white shadow-sm">STUDENT</button>
+        <button onclick="switchTab('faculty')" id="tab-faculty" class="flex-1 py-1.5 text-xs font-bold rounded-full transition-all text-gray-500">FACULTY</button>
+    </div>
+
+    <!-- Student View -->
+    <div id="view-student" class="space-y-4">
+        <!-- Registration -->
+        <div id="reg-section" class="glass-card p-5 hidden">
+            <h3 class="text-sm font-bold mb-3">Device Enrollment</h3>
+            <div id="video-container" class="mb-4">
+                <video id="video-reg" autoplay muted playsinline></video>
+            </div>
+            <div class="space-y-2">
+                <input type="text" id="reg-name" class="form-control btn-capsule" placeholder="Student Name">
+                <input type="text" id="reg-roll" class="form-control btn-capsule" placeholder="Roll Number">
+                <button onclick="registerDevice()" class="btn btn-primary w-full btn-capsule py-2.5">Capture Face & Bind</button>
+            </div>
+        </div>
+
+        <!-- Verification -->
+        <div id="verify-section" class="glass-card p-5">
+            <div class="flex justify-between items-end mb-3">
+                <h3 class="text-sm font-bold">Live Session</h3>
+                <span class="text-[10px] text-indigo-500 font-bold" id="student-roll-display">ID: ----</span>
+            </div>
+            <div id="video-container" class="mb-4">
+                <video id="video-verify" autoplay muted playsinline></video>
+            </div>
+            <div class="flex gap-2 mb-3">
+                <input type="text" id="session-otp" class="form-control btn-capsule text-center text-lg font-bold tracking-widest" placeholder="OTP" maxlength="4">
+            </div>
+            <button onclick="verifyPresence()" id="btn-verify" class="btn btn-indigo-600 bg-indigo-600 text-white w-full btn-capsule py-2.5">Verify Presence</button>
+        </div>
+    </div>
+
+    <!-- Faculty View -->
+    <div id="view-faculty" class="hidden space-y-3">
+        <div class="glass-card p-4">
+            <div class="grid grid-cols-2 gap-2 mb-3 text-[10px] font-bold text-gray-500 uppercase">
+                <div class="bg-gray-50 p-2 rounded">Sub: <span class="text-indigo-600">SUB1</span></div>
+                <div class="bg-gray-50 p-2 rounded">Slot: <span class="text-indigo-600">9-10 AM</span></div>
+                <div class="bg-gray-50 p-2 rounded">Sec: <span class="text-indigo-600">A</span></div>
+                <div class="bg-gray-50 p-2 rounded">Date: <span id="current-date" class="text-indigo-600">--</span></div>
+            </div>
+            
+            <div class="flex justify-between items-center bg-indigo-50 p-3 rounded-xl border border-indigo-100 mb-3">
+                <div>
+                    <p class="text-[10px] font-bold text-indigo-400 uppercase">Active OTP</p>
+                    <span class="text-3xl font-black text-indigo-700 tracking-tighter" id="display-otp">----</span>
+                </div>
+                <button onclick="startSession()" id="btn-session" class="btn btn-indigo-600 text-white btn-capsule px-4">New Session</button>
+            </div>
+            <button onclick="cleanupSession()" class="btn btn-outline-danger w-full btn-capsule py-2 text-[11px]">End & Clear Resources</button>
+        </div>
+
+        <div class="glass-card p-3">
+            <div class="flex justify-between items-center mb-3">
+                <h4 class="text-xs font-black uppercase text-gray-400">Live Grid</h4>
+                <span id="count-verified" class="text-[10px] bg-green-100 text-green-700 px-2 py-1 rounded-full font-bold">0 VERIFIED</span>
+            </div>
+            <div id="faculty-grid" class="faculty-grid">
+                <!-- Tiles injected here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast UI -->
+    <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-gray-900/90 backdrop-blur text-white px-6 py-2 rounded-full text-xs font-bold opacity-0 pointer-events-none transition-all z-50 shadow-2xl">
+        Status
+    </div>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getFirestore, doc, setDoc, getDoc, collection, query, onSnapshot, writeBatch, serverTimestamp, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+
+    const firebaseConfig = {
+apiKey: "AIzaSyBXECIZa45dq-o8Ka4G9Y1N7nll7cyli2U",
+  authDomain: "stuattnd.firebaseapp.com",
+  projectId: "stuattnd",
+  storageBucket: "stuattnd.firebasestorage.app",
+  messagingSenderId: "511533506488",
+  appId: "1:511533506488:web:aca4de3d513915d012f94d",
+  measurementId: "G-9PZZM5LFKX"};
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'medha-v1-prod';
+
+    let localStream = null;
+    let modelsLoaded = false;
+
+    async function init() {
+        document.getElementById('current-date').innerText = new Date().toLocaleDateString();
+        showToast("AI Booting...");
+        try {
+            const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
+            await Promise.all([
+                faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
+                faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+                faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+            ]);
+            modelsLoaded = true;
+            checkRegistration();
+        } catch (e) {
+            showToast("Model Load Fail. Check Internet.");
+        }
+
+        onAuthStateChanged(auth, (u) => {
+            if (!u) signInAnonymously(auth);
+            else syncFacultyGrid();
+        });
+    }
+
+    function checkRegistration() {
+        const savedRoll = localStorage.getItem('medha_roll');
+        if (!savedRoll) {
+            document.getElementById('reg-section').classList.remove('hidden');
+            document.getElementById('verify-section').classList.add('hidden');
+            startCamera('video-reg');
+        } else {
+            document.getElementById('student-roll-display').innerText = `ID: ${savedRoll}`;
+            document.getElementById('reg-section').classList.add('hidden');
+            document.getElementById('verify-section').classList.remove('hidden');
+            startCamera('video-verify');
+        }
+    }
+
+    async function startCamera(id) {
+        if (localStream) localStream.getTracks().forEach(t => t.stop());
+        try {
+            localStream = await navigator.mediaDevices.getUserMedia({ 
+                video: { facingMode: 'user', width: 400, height: 400 } 
+            });
+            const el = document.getElementById(id);
+            if(el) el.srcObject = localStream;
+        } catch (err) {
+            showToast("Camera Error");
+        }
+    }
+
+    // Student: Enrollment
+    window.registerDevice = async () => {
+        const name = document.getElementById('reg-name').value.trim();
+        const roll = document.getElementById('reg-roll').value.trim().toUpperCase();
+        if (!name || !roll) return showToast("Enter details");
+
+        const video = document.getElementById('video-reg');
+        const detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
+        if (!detection) return showToast("Face not clear");
+
+        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', roll), {
+            name, roll,
+            faceDescriptor: Array.from(detection.descriptor),
+            deviceId: crypto.randomUUID()
+        });
+
+        localStorage.setItem('medha_roll', roll);
+        showToast("Device Bound!");
+        checkRegistration();
+    }
+
+    // Student: Verify Presence
+    window.verifyPresence = async () => {
+        const roll = localStorage.getItem('medha_roll');
+        const otp = document.getElementById('session-otp').value;
+        const video = document.getElementById('video-verify');
+
+        showToast("Syncing...");
+        const sessionSnap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'sessions', 'active'));
+        if (!sessionSnap.exists() || sessionSnap.data().otp !== otp) return showToast("Invalid OTP");
+
+        const pos = await getGeo();
+        const session = sessionSnap.data();
+        if (calculateDistance(pos.lat, pos.lng, session.lat, session.lng) > 0.1) return showToast("Out of range");
+
+        showToast("Biometric Check...");
+        const studentSnap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', roll));
+        const saved = studentSnap.data();
+        
+        const live = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
+        if (!live || faceapi.euclideanDistance(live.descriptor, new Float32Array(saved.faceDescriptor)) > 0.6) {
+            return showToast("Face Mismatch");
+        }
+
+        // Capture static thumbnail for Faculty Grid
+        const canvas = document.createElement('canvas');
+        canvas.width = 100; canvas.height = 100;
+        canvas.getContext('2d').drawImage(video, 0, 0, 100, 100);
+        const livePic = canvas.toDataURL('image/jpeg', 0.5);
+
+        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'live_attendance', roll), {
+            roll, name: saved.name, livePic, timestamp: serverTimestamp()
+        });
+
+        showToast("Present!");
+        document.getElementById('btn-verify').disabled = true;
+        document.getElementById('btn-verify').innerText = "Verified ✓";
+    }
+
+    // Faculty: Session Management
+    window.startSession = async () => {
+        const otp = Math.floor(1000 + Math.random() * 9000).toString();
+        const pos = await getGeo();
+        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'sessions', 'active'), {
+            otp, lat: pos.lat, lng: pos.lng, startTime: serverTimestamp()
+        });
+        document.getElementById('display-otp').innerText = otp;
+        showToast("New Session Active");
+    }
+
+    window.cleanupSession = async () => {
+        if (!confirm("Stop session and clear all live data?")) return;
+        
+        showToast("Cleaning up...");
+        // 1. Clear Live List
+        const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'live_attendance'));
+        const snaps = await getDocs(q);
+        const batch = writeBatch(db);
+        snaps.forEach(d => batch.delete(d.ref));
+        
+        // 2. Reset Active Session
+        batch.delete(doc(db, 'artifacts', appId, 'public', 'data', 'sessions', 'active'));
+        await batch.commit();
+
+        // 3. Stop Faculty Local Resources
+        if (localStream) localStream.getTracks().forEach(t => t.stop());
+        
+        document.getElementById('display-otp').innerText = "----";
+        showToast("Session Cleared");
+    }
+
+    function syncFacultyGrid() {
+        const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'live_attendance');
+        onSnapshot(colRef, (snapshot) => {
+            const grid = document.getElementById('faculty-grid');
+            grid.innerHTML = '';
+            let count = 0;
+            snapshot.forEach(doc => {
+                count++;
+                const data = doc.data();
+                grid.innerHTML += `
+                    <div class="student-tile">
+                        <div class="verified-badge">✓</div>
+                        <img src="${data.livePic || 'https://via.placeholder.com/100'}" alt="face">
+                        <div class="font-bold truncate">${data.name.split(' ')[0]}</div>
+                        <div class="text-gray-400 font-mono">${data.roll.slice(-4)}</div>
+                    </div>`;
+            });
+            document.getElementById('count-verified').innerText = `${count} VERIFIED`;
+        });
+    }
+
+    // UI Helpers
+    window.switchTab = (tab) => {
+        const isStudent = tab === 'student';
+        document.getElementById('view-student').classList.toggle('hidden', !isStudent);
+        document.getElementById('view-faculty').classList.toggle('hidden', isStudent);
+        document.getElementById('tab-student').className = isStudent ? "flex-1 py-1.5 text-xs font-bold rounded-full transition-all bg-white shadow-sm" : "flex-1 py-1.5 text-xs font-bold rounded-full transition-all text-gray-500";
+        document.getElementById('tab-faculty').className = !isStudent ? "flex-1 py-1.5 text-xs font-bold rounded-full transition-all bg-white shadow-sm" : "flex-1 py-1.5 text-xs font-bold rounded-full transition-all text-gray-500";
+        if (isStudent) checkRegistration();
+    }
+
+    function showToast(m) {
+        const t = document.getElementById('toast');
+        t.innerText = m; t.style.opacity = '1';
+        setTimeout(() => t.style.opacity = '0', 2500);
+    }
+
+    function getGeo() {
+        return new Promise(r => navigator.geolocation.getCurrentPosition(p => r({lat: p.coords.latitude, lng: p.coords.longitude}), () => r({lat:0,lng:0})));
+    }
+
+    function calculateDistance(la1, lo1, la2, lo2) {
+        const p = 0.017453292519943295;
+        const c = Math.cos;
+        const a = 0.5 - c((la2 - la1) * p)/2 + c(la1 * p) * c(la2 * p) * (1 - c((lo2 - lo1) * p))/2;
+        return 12742 * Math.asin(Math.sqrt(a));
+    }
+
+    window.onload = init;
+</script>
+</body>
+</html>
