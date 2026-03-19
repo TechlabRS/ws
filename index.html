@@ -15,54 +15,430 @@
     <style>
         :root { --primary: #6366f1; }
         body { 
-            background-color: #f1f5f9; 
+            background-color: #f8fafc; 
             font-family: 'Inter', sans-serif; 
             overscroll-behavior: none;
         }
-        /* Mobile-First Adjustments for 5.5" Screens */
-        .btn-capsule { border-radius: 50px; font-weight: 600; font-size: 0.875rem; }
+        .btn-capsule { border-radius: 50px; font-weight: 600; font-size: 0.8rem; }
         .glass-card { 
             background: white; 
-            border-radius: 16px; 
+            border-radius: 20px; 
             border: 1px solid rgba(0,0,0,0.05); 
-            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.05);
         }
         #video-container { 
             position: relative; 
             width: 100%; 
-            max-width: 320px; 
+            max-width: 280px; 
             margin: auto; 
             aspect-ratio: 1/1; 
-            background: #1e293b; 
+            background: #0f172a; 
             border-radius: 50%; 
             overflow: hidden; 
-            border: 4px solid white;
+            border: 4px solid #fff;
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.2);
         }
         #video { width: 100%; height: 100%; object-fit: cover; }
         
-        /* High Density Grid for Faculty */
+        /* Modern Selective Style (Pills) */
+        .pill-select { display: flex; flex-wrap: wrap; gap: 6px; }
+        .pill-item {
+            padding: 6px 12px;
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            border-radius: 50px;
+            font-size: 10px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #64748b;
+        }
+        .pill-item.active {
+            background: #6366f1;
+            color: white;
+            border-color: #6366f1;
+            box-shadow: 0 4px 6px -1px rgba(99, 102, 241, 0.4);
+        }
+
+        /* Faculty Grid */
         .faculty-grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
-            gap: 8px;
+            gap: 10px;
         }
-        @media (min-width: 400px) { .faculty-grid { grid-template-columns: repeat(5, 1fr); } }
-        @media (min-width: 600px) { .faculty-grid { grid-template-columns: repeat(6, 1fr); } }
-
         .student-tile {
-            aspect-ratio: 1/1.3;
             background: #fff;
-            border-radius: 8px;
-            padding: 4px;
+            border-radius: 12px;
+            padding: 6px;
             text-align: center;
-            font-size: 9px;
-            border: 1px solid #e2e8f0;
+            font-size: 10px;
+            border: 1px solid #f1f5f9;
             position: relative;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
         }
         .student-tile img {
             width: 100%;
             aspect-ratio: 1/1;
             object-fit: cover;
+            border-radius: 8px;
+            margin-bottom: 4px;
+        }
+        .verified-badge {
+            position: absolute;
+            top: -4px;
+            right: -4px;
+            background: #10b981;
+            color: white;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            font-size: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid white;
+        }
+    </style>
+</head>
+<body>
+
+<div id="app" class="container max-w-md mx-auto min-h-screen px-4 pb-24">
+    <header class="py-6 flex justify-between items-center">
+        <div>
+            <h1 class="text-2xl font-black text-indigo-600 tracking-tight">Medha</h1>
+            <p class="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Presence v2.0</p>
+        </div>
+        <div id="status-chip" class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-[10px] font-bold">ONLINE</div>
+    </header>
+
+    <!-- Tab Switching -->
+    <div class="flex p-1.5 mb-6 bg-gray-200/50 backdrop-blur rounded-full">
+        <button onclick="switchTab('student')" id="tab-student" class="flex-1 py-2 text-xs font-black rounded-full transition-all bg-white shadow-sm">STUDENT</button>
+        <button onclick="switchTab('faculty')" id="tab-faculty" class="flex-1 py-2 text-xs font-black rounded-full transition-all text-gray-500">FACULTY</button>
+    </div>
+
+    <!-- Student Interface -->
+    <div id="view-student" class="space-y-6">
+        <!-- Registration Form -->
+        <div id="reg-section" class="glass-card p-6 hidden">
+            <h3 class="text-sm font-black mb-4 uppercase text-gray-500">Device Binding</h3>
+            <div id="video-container" class="mb-6">
+                <video id="video-reg" autoplay muted playsinline></video>
+            </div>
+            <div class="space-y-3">
+                <input type="text" id="reg-name" class="form-control btn-capsule h-12" placeholder="Full Name">
+                <input type="text" id="reg-roll" class="form-control btn-capsule h-12" placeholder="Roll No (e.g. 21CS01)">
+                
+                <p class="text-[10px] font-bold text-gray-400 uppercase mt-2">Your Section</p>
+                <div class="pill-select" id="reg-section-pills">
+                    <div class="pill-item" onclick="selectPill(this, 'reg-sec')">A</div>
+                    <div class="pill-item" onclick="selectPill(this, 'reg-sec')">B</div>
+                    <div class="pill-item" onclick="selectPill(this, 'reg-sec')">C</div>
+                    <div class="pill-item" onclick="selectPill(this, 'reg-sec')">D</div>
+                </div>
+                
+                <button onclick="registerDevice()" class="btn btn-indigo-600 bg-indigo-600 text-white w-full btn-capsule py-3.5 mt-4 shadow-lg shadow-indigo-200">Capture & Enroll</button>
+            </div>
+        </div>
+
+        <!-- Attendance Verification -->
+        <div id="verify-section" class="glass-card p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-sm font-black uppercase text-gray-500">Live Verification</h3>
+                <span id="student-meta" class="text-[10px] bg-indigo-50 text-indigo-600 px-2 py-1 rounded font-bold">ID: -- | SEC: --</span>
+            </div>
+            
+            <div id="video-container" class="mb-6">
+                <video id="video-verify" autoplay muted playsinline></video>
+            </div>
+
+            <div class="space-y-4">
+                <input type="text" id="session-otp" class="form-control btn-capsule text-center text-2xl font-black tracking-[1em] h-14" placeholder="0000" maxlength="4">
+                <button onclick="verifyPresence()" id="btn-verify" class="btn btn-indigo-600 bg-indigo-600 text-white w-full btn-capsule py-3.5 shadow-lg shadow-indigo-200">Mark Presence</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Faculty Interface -->
+    <div id="view-faculty" class="hidden space-y-4">
+        <div class="glass-card p-6">
+            <h3 class="text-xs font-black text-gray-400 uppercase mb-4">Session Config</h3>
+            
+            <div class="space-y-4 mb-6">
+                <div>
+                    <label class="text-[10px] font-bold text-gray-500 uppercase mb-2 block">Subject</label>
+                    <div class="pill-select" id="fac-sub-pills">
+                        <div class="pill-item" onclick="selectPill(this, 'fac-sub')">S1</div>
+                        <div class="pill-item" onclick="selectPill(this, 'fac-sub')">S2</div>
+                        <div class="pill-item" onclick="selectPill(this, 'fac-sub')">S3</div>
+                        <div class="pill-item" onclick="selectPill(this, 'fac-sub')">S4</div>
+                        <div class="pill-item" onclick="selectPill(this, 'fac-sub')">S5</div>
+                        <div class="pill-item" onclick="selectPill(this, 'fac-sub')">S6</div>
+                        <div class="pill-item" onclick="selectPill(this, 'fac-sub')">S7</div>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-[10px] font-bold text-gray-500 uppercase mb-2 block">Slot</label>
+                        <div class="pill-select" id="fac-slot-pills">
+                            <div class="pill-item" onclick="selectPill(this, 'fac-slot')">9-10</div>
+                            <div class="pill-item" onclick="selectPill(this, 'fac-slot')">10-11</div>
+                            <div class="pill-item" onclick="selectPill(this, 'fac-slot')">11-12</div>
+                            <div class="pill-item" onclick="selectPill(this, 'fac-slot')">1-2</div>
+                            <div class="pill-item" onclick="selectPill(this, 'fac-slot')">2-3</div>
+                            <div class="pill-item" onclick="selectPill(this, 'fac-slot')">3-4</div>
+                            <div class="pill-item" onclick="selectPill(this, 'fac-slot')">4-5</div>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-bold text-gray-500 uppercase mb-2 block">Section</label>
+                        <div class="pill-select" id="fac-sec-pills">
+                            <div class="pill-item" onclick="selectPill(this, 'fac-sec')">A</div>
+                            <div class="pill-item" onclick="selectPill(this, 'fac-sec')">B</div>
+                            <div class="pill-item" onclick="selectPill(this, 'fac-sec')">C</div>
+                            <div class="pill-item" onclick="selectPill(this, 'fac-sec')">D</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-between p-4 bg-indigo-600 rounded-2xl text-white shadow-xl shadow-indigo-100 mb-4">
+                <div>
+                    <p class="text-[9px] font-bold opacity-70 uppercase">Today's OTP</p>
+                    <span id="display-otp" class="text-3xl font-black tracking-tighter">----</span>
+                </div>
+                <button onclick="startSession()" id="btn-session" class="bg-white text-indigo-600 px-4 py-2 rounded-full font-black text-xs uppercase shadow-sm">Start</button>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-2">
+                <button onclick="saveAndClear()" class="btn btn-success btn-capsule py-2.5 text-[10px]">SAVE TO RECORDS</button>
+                <button onclick="cleanupResources()" class="btn btn-outline-danger btn-capsule py-2.5 text-[10px]">CANCEL SESSION</button>
+            </div>
+        </div>
+
+        <div class="glass-card p-5">
+            <div class="flex justify-between items-center mb-4">
+                <h4 class="text-xs font-black text-gray-400 uppercase">Verified Students</h4>
+                <span id="count-verified" class="bg-green-100 text-green-700 text-[10px] px-2 py-1 rounded-full font-bold">0 TOTAL</span>
+            </div>
+            <div id="faculty-grid" class="faculty-grid">
+                <!-- Tiles -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Feedback Toast -->
+    <div id="toast" class="fixed bottom-8 left-1/2 -translate-x-1/2 bg-gray-900/90 backdrop-blur-md text-white px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest opacity-0 pointer-events-none transition-all z-50 shadow-2xl">
+        Ready
+    </div>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getFirestore, doc, setDoc, getDoc, collection, query, onSnapshot, writeBatch, serverTimestamp, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+
+    const firebaseConfig = {
+apiKey: "AIzaSyBXECIZa45dq-o8Ka4G9Y1N7nll7cyli2U",
+  authDomain: "stuattnd.firebaseapp.com",
+  projectId: "stuattnd",
+  storageBucket: "stuattnd.firebasestorage.app",
+  messagingSenderId: "511533506488",
+  appId: "1:511533506488:web:aca4de3d513915d012f94d",
+  measurementId: "G-9PZZM5LFKX"};
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'medha-prod-x';
+
+    let localStream = null;
+    let modelsLoaded = false;
+    let selections = { 'reg-sec': '', 'fac-sub': '', 'fac-slot': '', 'fac-sec': '' };
+
+    async function init() {
+        showToast("Loading AI Models...");
+        try {
+            const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
+            await Promise.all([
+                faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
+                faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+                faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+            ]);
+            modelsLoaded = true;
+            showToast("System Ready");
+            checkState();
+        } catch (e) {
+            showToast("Init Failed. Check Network.");
+        }
+
+        onAuthStateChanged(auth, (u) => {
+            if (!u) signInAnonymously(auth);
+            else syncFacultyGrid();
+        });
+    }
+
+    window.selectPill = (el, type) => {
+        const parent = el.parentElement;
+        parent.querySelectorAll('.pill-item').forEach(p => p.classList.remove('active'));
+        el.classList.add('active');
+        selections[type] = el.innerText;
+    };
+
+    function checkState() {
+        const roll = localStorage.getItem('medha_roll');
+        const sec = localStorage.getItem('medha_sec');
+        if (!roll) {
+            document.getElementById('reg-section').classList.remove('hidden');
+            document.getElementById('verify-section').classList.add('hidden');
+            startCamera('video-reg');
+        } else {
+            document.getElementById('student-meta').innerText = `ID: ${roll} | SEC: ${sec}`;
+            document.getElementById('reg-section').classList.add('hidden');
+            document.getElementById('verify-section').classList.remove('hidden');
+            // Camera only starts when tab is active (handled in switchTab)
+        }
+    }
+
+    async function startCamera(id) {
+        stopCamera();
+        try {
+            localStream = await navigator.mediaDevices.getUserMedia({ 
+                video: { facingMode: 'user', width: 400, height: 400 } 
+            });
+            const el = document.getElementById(id);
+            if(el) el.srcObject = localStream;
+        } catch (err) {
+            showToast("Enable Camera Permissions");
+        }
+    }
+
+    function stopCamera() {
+        if (localStream) {
+            localStream.getTracks().forEach(t => t.stop());
+            localStream = null;
+        }
+    }
+
+    // --- STUDENT LOGIC ---
+
+    window.registerDevice = async () => {
+        const name = document.getElementById('reg-name').value.trim();
+        const roll = document.getElementById('reg-roll').value.trim().toUpperCase();
+        const sec = selections['reg-sec'];
+        if (!name || !roll || !sec) return showToast("Missing Info");
+
+        showToast("Processing Face...");
+        const video = document.getElementById('video-reg');
+        const detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
+        if (!detection) return showToast("Face not detected");
+
+        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', roll), {
+            name, roll, sec,
+            faceDescriptor: Array.from(detection.descriptor),
+            registeredAt: serverTimestamp()
+        });
+
+        localStorage.setItem('medha_roll', roll);
+        localStorage.setItem('medha_sec', sec);
+        showToast("Successfully Enrolled!");
+        stopCamera();
+        checkState();
+    };
+
+    window.verifyPresence = async () => {
+        const roll = localStorage.getItem('medha_roll');
+        const mySec = localStorage.getItem('medha_sec');
+        const otp = document.getElementById('session-otp').value;
+        const video = document.getElementById('video-verify');
+
+        if (!otp) return showToast("Enter OTP");
+        
+        showToast("Validating...");
+        const sessSnap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'sessions', 'active'));
+        if (!sessSnap.exists()) return showToast("No session active");
+        
+        const session = sessSnap.data();
+        if (session.otp !== otp) return showToast("Wrong OTP");
+        if (session.sec !== mySec) return showToast("Wrong Section Session");
+
+        const pos = await getGeo();
+        if (calculateDistance(pos.lat, pos.lng, session.lat, session.lng) > 0.1) return showToast("Not in Classroom");
+
+        showToast("Biometric Check...");
+        const studentSnap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', roll));
+        const saved = studentSnap.data();
+        
+        const live = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
+        if (!live || faceapi.euclideanDistance(live.descriptor, new Float32Array(saved.faceDescriptor)) > 0.6) {
+            return showToast("Face Check Failed");
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = 120; canvas.height = 120;
+        canvas.getContext('2d').drawImage(video, 0, 0, 120, 120);
+        
+        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'live_attendance', roll), {
+            roll, name: saved.name, sec: saved.sec, livePic: canvas.toDataURL('image/jpeg', 0.6), timestamp: serverTimestamp()
+        });
+
+        showToast("Presence Recorded!");
+        stopCamera();
+        document.getElementById('btn-verify').disabled = true;
+        document.getElementById('btn-verify').innerText = "DONE ✓";
+    };
+
+    // --- FACULTY LOGIC ---
+
+    window.startSession = async () => {
+        const { 'fac-sub': sub, 'fac-slot': slot, 'fac-sec': sec } = selections;
+        if (!sub || !slot || !sec) return showToast("Complete Config");
+
+        showToast("GPS Sync...");
+        const pos = await getGeo();
+        const otp = Math.floor(1000 + Math.random() * 9000).toString();
+
+        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'sessions', 'active'), {
+            otp, sub, slot, sec, lat: pos.lat, lng: pos.lng, date: new Date().toLocaleDateString()
+        });
+
+        document.getElementById('display-otp').innerText = otp;
+        showToast("Session Started!");
+    };
+
+    window.saveAndClear = async () => {
+        const gridRef = collection(db, 'artifacts', appId, 'public', 'data', 'live_attendance');
+        const sessSnap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'sessions', 'active'));
+        const snaps = await getDocs(gridRef);
+        
+        if (snaps.empty) return showToast("No students to save");
+        if (!confirm(`Save ${snaps.size} records and close?`)) return;
+
+        showToast("Saving Records...");
+        const batch = writeBatch(db);
+        const sess = sessSnap.data();
+        const recordId = `${sess.sub}_${sess.date.replace(/\//g,'-')}_${sess.slot}`;
+
+        snaps.forEach(s => {
+            const data = s.data();
+            const ref = doc(db, 'artifacts', appId, 'public', 'data', 'attendance_history', `${recordId}_${data.roll}`);
+            batch.set(ref, { ...data, ...sess, savedAt: serverTimestamp() });
+            batch.delete(s.ref);
+        });
+
+        batch.delete(doc(db, 'artifacts', appId, 'public', 'data', 'sessions', 'active'));
+        await batch.commit();
+        
+        document.getElementById('display-otp').innerText = "----";
+        showToast("Records Archived.");
+    };
+
+    window.cleanupResources = async () => {
+        if (!confirm("Discard live data and stop?")) return;
+        const gridRef = collection(db, 'artifacts', appId, 'public', 'data', 'live_attendance');
+        const snaps = await getDocs(gridRef);
+        const batch = writeBatch(db);
+        snaps.forEach(s => batch.delete(s.ref));
             border-radius: 4px;
             margin-bottom: 2px;
         }
