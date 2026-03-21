@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VMX Ultra | Cinematic Player</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #09090b;
+            color: #fafafa;
+            overflow-x: hidden;
+        }
+
+        /* Custom Range Slider */
+        input[type="range"] { appearance: none; background: transparent; cursor: pointer; }
+        input[type="range"]::-webkit-slider-runnable-track { 
+            background: rgba(255,255,255,0.1); 
+            height: 6px; 
+            border-radius: 3px; 
+            transition: all 0.2s ease;
+        }
+        input[type="range"]:hover::-webkit-slider-runnable-track { background: rgba(255,255,255,0.2); }
+        input[type="range"]::-webkit-slider-thumb { 
+            appearance: none; 
+            height: 14px; 
+            width: 14px; 
+            background: #3b82f6; 
+            border-radius: 50%; 
+            margin-top: -4px; 
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+            transition: transform 0.2s ease;
+        }
+        input[type="range"]:active::-webkit-slider-thumb { transform: scale(1.3); }
+
+        /* Smooth UI Transitions */
+        .controls-overlay {
+            transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1), transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .video-container:not(:hover) .controls-overlay.hide-cursor {
+            opacity: 0;
+            transform: translateY(10px);
+            cursor: none;
+        }
+
+        /* Playlist Active State */
+        .playlist-card.active {
+            background: rgba(59, 130, 246, 0.1);
+            border-color: rgba(59, 130, 246, 0.4);
+        }
+        .playlist-card.active .play-indicator { display: block; }
+
+        /* Glassmorphism Backgrounds */
+        .glass {
+            background: rgba(15, 15, 20, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Keyboard Shortcut Toast */
+        #shortcut-toast {
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+
+        /* Hide Scrollbar */
+        .custom-scroll::-webkit-scrollbar { width: 4px; }
+        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #27272a; border-radius: 10px; }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4 md:p-8">
+
+    <!-- Keyboard Shortcut Toast -->
+    <div id="shortcut-toast" class="fixed top-10 left-1/2 -translate-x-1/2 glass px-6 py-3 rounded-full z-50 opacity-0 pointer-events-none flex items-center gap-3">
+        <i id="toast-icon" data-lucide="info" class="w-5 h-5 text-blue-400"></i>
+        <span id="toast-text" class="font-semibold text-sm tracking-wide uppercase">Action</span>
+    </div>
+
+    <div class="w-full max-w-7xl grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        
+        <!-- LEFT: PLAYER SECTION -->
+        <div class="lg:col-span-8 space-y-6">
+            <div id="player-wrapper" class="video-container relative group aspect-video bg-black rounded-3xl overflow-hidden shadow-[0_0_50px_-12px_rgba(59,130,246,0.3)] border border-white/5">
+                
+                <video id="main-video" class="w-full h-full object-contain" playsinline>
+                    <source src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" type="video/mp4">
+                </video>
+
+                <div id="video-click-area" class="absolute inset-0 z-10 cursor-pointer"></div>
+
+                <!-- LOADING SPINNER -->
+                <div id="loader" class="absolute inset-0 flex items-center justify-center bg-black/50 z-20 hidden">
+                    <div class="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                </div>
+
+                <!-- CONTROLS OVERLAY -->
+                <div id="controls" class="controls-overlay absolute inset-0 z-30 flex flex-col justify-end p-4 md:p-8 bg-gradient-to-t from-black/90 via-transparent to-black/20 opacity-100">
+                    
+                    <div class="absolute top-6 left-8">
+                        <h2 id="current-video-title" class="text-lg md:text-xl font-bold text-white drop-shadow-md">Big Buck Bunny</h2>
+                        <p class="text-xs text-zinc-400 font-medium uppercase tracking-widest mt-1">Now Playing</p>
+                    </div>
+
+                    <div class="w-full group/seek relative mb-4">
+                        <input type="range" id="seek-bar" min="0" max="100" value="0" class="w-full relative z-10">
+                    </div>
+
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2 md:gap-6">
+                            <button id="play-pause" class="w-12 h-12 flex items-center justify-center rounded-full bg-white text-black hover:bg-blue-500 hover:text-white transition-all transform active:scale-90">
+                                <i data-lucide="play" id="play-icon" class="w-6 h-6 fill-current"></i>
+                            </button>
+
+                            <div class="flex items-center gap-3 group/vol">
+                                <button id="mute-btn" class="text-zinc-400 hover:text-white transition-colors">
+                                    <i data-lucide="volume-2" id="volume-icon" class="w-5 h-5"></i>
+                                </button>
+                                <input type="range" id="volume-slider" min="0" max="1" step="0.05" value="1" class="w-0 group-hover/vol:w-20 transition-all duration-300 opacity-0 group-hover/vol:opacity-100 overflow-hidden">
+                            </div>
+
+                            <div class="hidden sm:flex text-sm font-semibold tabular-nums tracking-tight">
+                                <span id="current-time">0:00</span>
+                                <span class="mx-1 text-zinc-600">/</span>
+                                <span id="duration" class="text-zinc-500">0:00</span>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-3 md:gap-5">
+                            <button id="pip-btn" title="Picture in Picture (P)" class="p-2 text-zinc-400 hover:text-white glass rounded-full transition-all">
+                                <i data-lucide="external-link" class="w-4 h-4"></i>
+                            </button>
+
+                            <div class="relative group/speed">
+                                <button class="flex items-center gap-1 glass px-3 py-1.5 rounded-full text-xs font-bold hover:bg-white/10 transition-all">
+                                    <span id="speed-label">1.0x</span>
+                                </button>
+                                <div class="absolute bottom-full right-0 mb-2 w-24 glass rounded-xl overflow-hidden opacity-0 group-hover/speed:opacity-100 pointer-events-none group-hover/speed:pointer-events-auto transition-all transform translate-y-2 group-hover/speed:translate-y-0">
+                                    <div class="flex flex-col py-1">
+                                        <button class="speed-opt px-4 py-2 text-xs text-left hover:bg-blue-500/20" data-speed="0.5">0.5x</button>
+                                        <button class="speed-opt px-4 py-2 text-xs text-left hover:bg-blue-500/20" data-speed="1">Normal</button>
+                                        <button class="speed-opt px-4 py-2 text-xs text-left hover:bg-blue-500/20" data-speed="1.5">1.5x</button>
+                                        <button class="speed-opt px-4 py-2 text-xs text-left hover:bg-blue-500/20" data-speed="2">2.0x</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button id="fullscreen-btn" title="Fullscreen (F)" class="p-2 text-zinc-400 hover:text-white transition-all">
+                                <i data-lucide="maximize" class="w-5 h-5"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Video Metadata -->
+            <div class="p-2">
+                <div class="flex flex-wrap gap-2 mb-4">
+                    <span class="px-3 py-1 rounded-full glass text-[10px] font-bold text-blue-400 uppercase tracking-widest">AV1 / VP9 Support</span>
+                    <span class="px-3 py-1 rounded-full glass text-[10px] font-bold text-emerald-400 uppercase tracking-widest">Ultra HD</span>
+                    <span class="px-3 py-1 rounded-full glass text-[10px] font-bold text-amber-400 uppercase tracking-widest">Local Files Enabled</span>
+                </div>
+                <h1 id="meta-title" class="text-2xl font-bold text-white mb-2 leading-tight">Big Buck Bunny</h1>
+                <p class="text-zinc-400 text-sm leading-relaxed max-w-2xl">Upload your own videos to the playlist. Note: Local file URLs are temporary and won't persist across refreshes, but standard settings will.</p>
+            </div>
+        </div>
+
+        <!-- RIGHT: PLAYLIST SECTION -->
+        <div class="lg:col-span-4 flex flex-col gap-4">
+            <div class="flex items-center justify-between px-2">
+                <h3 class="text-lg font-bold flex items-center gap-2 text-white">
+                    <i data-lucide="play-circle" class="w-5 h-5 text-blue-500"></i>
+                    Media Library
+                </h3>
+                <!-- LOCAL FILE SELECTOR -->
+                <label for="local-file-input" class="cursor-pointer glass p-2 rounded-full hover:bg-white/10 transition-all text-blue-400 hover:text-white" title="Open Local File">
+                    <i data-lucide="plus" class="w-5 h-5"></i>
+                    <input type="file" id="local-file-input" class="hidden" accept="video/*">
+                </label>
+            </div>
+
+            <div id="playlist-container" class="space-y-3 overflow-y-auto max-h-[600px] pr-2 custom-scroll"></div>
+
+            <div class="glass rounded-2xl p-4 mt-4">
+                <h4 class="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-3">Shortcuts</h4>
+                <div class="grid grid-cols-2 gap-y-2 text-[10px] text-zinc-300">
+                    <div class="flex items-center gap-2"><kbd class="bg-zinc-800 px-1.5 py-0.5 rounded border border-zinc-700">Space</kbd> Play/Pause</div>
+                    <div class="flex items-center gap-2"><kbd class="bg-zinc-800 px-1.5 py-0.5 rounded border border-zinc-700">F</kbd> Fullscreen</div>
+                    <div class="flex items-center gap-2"><kbd class="bg-zinc-800 px-1.5 py-0.5 rounded border border-zinc-700">M</kbd> Mute</div>
+                    <div class="flex items-center gap-2"><kbd class="bg-zinc-800 px-1.5 py-0.5 rounded border border-zinc-700">← →</kbd> Seek 5s</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+
+        const video = document.getElementById('main-video');
+        const playBtn = document.getElementById('play-pause');
+        const playIcon = document.getElementById('play-icon');
+        const seekBar = document.getElementById('seek-bar');
+        const volumeSlider = document.getElementById('volume-slider');
+        const volumeIcon = document.getElementById('volume-icon');
+        const speedLabel = document.getElementById('speed-label');
+        const loader = document.getElementById('loader');
+        const playlistContainer = document.getElementById('playlist-container');
+        const toast = document.getElementById('shortcut-toast');
+        const toastText = document.getElementById('toast-text');
+        const toastIcon = document.getElementById('toast-icon');
+        const fileInput = document.getElementById('local-file-input');
+
+        const tracks = [
+            { id: "v1", title: "Big Buck Bunny", desc: "Classic open-source short film", url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4", thumb: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Big_buck_bunny_poster_big.jpg/220px-Big_buck_bunny_poster_big.jpg", duration: "9:56", isLocal: false },
+            { id: "v2", title: "Elephant's Dream", desc: "High-octane blender animation", url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4", thumb: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e8/Elephants_Dream_poster.jpg/220px-Elephants_Dream_poster.jpg", duration: "10:53", isLocal: false },
+            { id: "v3", title: "For Bigger Blazes", desc: "Chromecast sample tech demo", url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4", thumb: "https://i.ytimg.com/vi/c8-BTr_C68c/maxresdefault.jpg", duration: "0:15", isLocal: false }
+        ];
+
+        const STORAGE_KEY = 'vmx_player_settings';
+
+        function saveState() {
+            const currentTrack = tracks.find(t => t.url === video.src);
+            // We don't save local blob URLs as they expire, but we save other settings
+            const state = {
+                currentTrackId: currentTrack?.isLocal ? null : currentTrack?.id,
+                currentTime: video.currentTime,
+                volume: video.volume,
+                muted: video.muted,
+                playbackRate: video.playbackRate
+            };
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        }
+
+        function loadState() {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            return saved ? JSON.parse(saved) : null;
+        }
+
+        function initPlaylist(activeIdx) {
+            playlistContainer.innerHTML = tracks.map((t, i) => `
+                <div onclick="loadVideo(${i})" class="playlist-card ${i === activeIdx ? 'active' : ''} glass group p-3 rounded-2xl cursor-pointer transition-all hover:scale-[1.02] border-transparent">
+                    <div class="flex gap-4 items-center">
+                        <div class="relative w-24 h-16 rounded-lg overflow-hidden shrink-0 bg-zinc-800">
+                            ${t.thumb ? `<img src="${t.thumb}" class="w-full h-full object-cover">` : `<div class="w-full h-full flex items-center justify-center"><i data-lucide="video" class="w-6 h-6 text-zinc-600"></i></div>`}
+                            <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                <i data-lucide="play" class="w-5 h-5 fill-white text-white"></i>
+                            </div>
+                        </div>
+                        <div class="overflow-hidden">
+                            <h4 class="text-sm font-bold truncate group-hover:text-blue-400 transition-colors">${t.title}</h4>
+                            <div class="flex items-center gap-2 mt-2">
+                                <span class="text-[9px] bg-zinc-800 px-1.5 py-0.5 rounded text-zinc-400 tracking-wider">${t.isLocal ? 'LOCAL' : t.duration}</span>
+                                <span class="play-indicator hidden w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        function loadVideo(index, seekTo = 0) {
+            const track = tracks[index];
+            if (!track) return;
+
+            // Revoke old blob URLs to free memory if switching away from a local file
+            const currentTrack = tracks.find(t => t.url === video.src);
+            if (currentTrack?.isLocal && currentTrack.url !== track.url) {
+                // We keep them for now in case user switches back, 
+                // but in a complex app you'd manage this carefully.
+            }
+
+            video.src = track.url;
+            document.getElementById('current-video-title').textContent = track.title;
+            document.getElementById('meta-title').textContent = track.title;
+            
+            const onMetadata = () => {
+                if (seekTo > 0) video.currentTime = seekTo;
+                video.removeEventListener('loadedmetadata', onMetadata);
+            };
+            video.addEventListener('loadedmetadata', onMetadata);
+            
+            initPlaylist(index);
+            updatePlayBtn(!video.paused);
+        }
+
+        // --- Handle File Selection ---
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            // Create a temporary URL for the local file
+            const objectUrl = URL.createObjectURL(file);
+            
+            const newTrack = {
+                id: 'local-' + Date.now(),
+                title: file.name,
+                desc: 'Local File: ' + (file.size / (1024 * 1024)).toFixed(2) + ' MB',
+                url: objectUrl,
+                thumb: null, // Browsers don't give thumbs for free, we'd need canvas to generate
+                duration: '--:--',
+                isLocal: true
+            };
+
+            tracks.unshift(newTrack); // Add to top of list
+            loadVideo(0);
+            video.play();
+            updatePlayBtn(true);
+            showToast("Added Local File", "file-video");
+            fileInput.value = ''; // Reset input
+        });
+
+        function togglePlay() {
+            if (video.paused) {
+                video.play();
+                updatePlayBtn(true);
+            } else {
+                video.pause();
+                updatePlayBtn(false);
+            }
+        }
+
+        function updatePlayBtn(isPlaying) {
+            playIcon.setAttribute('data-lucide', isPlaying ? 'pause' : 'play');
+            lucide.createIcons();
+            playBtn.className = isPlaying 
+                ? "w-12 h-12 flex items-center justify-center rounded-full bg-blue-500 text-white transition-all transform active:scale-90"
+                : "w-12 h-12 flex items-center justify-center rounded-full bg-white text-black transition-all transform active:scale-90";
+        }
+
+        function showToast(text, icon) {
+            toastText.textContent = text;
+            toastIcon.setAttribute('data-lucide', icon);
+            lucide.createIcons();
+            toast.style.opacity = "1";
+            toast.style.transform = "translate(-50%, 20px)";
+            setTimeout(() => {
+                toast.style.opacity = "0";
+                toast.style.transform = "translate(-50%, 0px)";
+            }, 1500);
+        }
+
+        function formatTime(s) {
+            const min = Math.floor(s / 60);
+            const sec = Math.floor(s % 60);
+            return `${min}:${sec < 10 ? '0' + sec : sec}`;
+        }
+
+        // --- Listeners ---
+        playBtn.addEventListener('click', togglePlay);
+        document.getElementById('video-click-area').addEventListener('click', togglePlay);
+
+        video.addEventListener('timeupdate', () => {
+            const progress = (video.currentTime / video.duration) * 100;
+            seekBar.value = progress || 0;
+            document.getElementById('current-time').textContent = formatTime(video.currentTime);
+            saveState();
+        });
+
+        video.addEventListener('loadedmetadata', () => {
+            document.getElementById('duration').textContent = formatTime(video.duration);
+        });
+
+        video.addEventListener('waiting', () => loader.classList.remove('hidden'));
+        video.addEventListener('canplay', () => loader.classList.add('hidden'));
+
+        seekBar.addEventListener('input', () => {
+            video.currentTime = (seekBar.value / 100) * video.duration;
+        });
+
+        volumeSlider.addEventListener('input', (e) => {
+            const vol = e.target.value;
+            video.volume = vol;
+            video.muted = (vol == 0);
+            volumeIcon.setAttribute('data-lucide', vol == 0 ? 'volume-x' : (vol < 0.5 ? 'volume-1' : 'volume-2'));
+            lucide.createIcons();
+            saveState();
+        });
+
+        document.querySelectorAll('.speed-opt').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const s = parseFloat(btn.dataset.speed);
+                video.playbackRate = s;
+                speedLabel.textContent = s + 'x';
+                showToast("Speed: " + s + "x", "zap");
+                saveState();
+            });
+        });
+
+        document.getElementById('fullscreen-btn').addEventListener('click', () => {
+            if (!document.fullscreenElement) document.getElementById('player-wrapper').requestFullscreen();
+            else document.exitFullscreen();
+        });
+
+        document.getElementById('pip-btn').addEventListener('click', () => {
+            if (document.pictureInPictureElement) document.exitPictureInPicture();
+            else if (document.pictureInPictureEnabled) video.requestPictureInPicture();
+        });
+
+        window.addEventListener('keydown', (e) => {
+            if (document.activeElement.tagName === 'INPUT') return;
+            switch(e.key.toLowerCase()) {
+                case ' ': togglePlay(); e.preventDefault(); break;
+                case 'f': document.getElementById('fullscreen-btn').click(); break;
+                case 'm': video.muted = !video.muted; showToast(video.muted ? "Muted" : "Unmuted", video.muted ? "volume-x" : "volume-2"); saveState(); break;
+                case 'arrowright': video.currentTime += 5; showToast("+5s", "chevrons-right"); break;
+                case 'arrowleft': video.currentTime -= 5; showToast("-5s", "chevrons-left"); break;
+            }
+        });
+
+        window.addEventListener('load', () => {
+            const state = loadState();
+            if (state) {
+                // Try to find the last played track by ID (excluding locals)
+                const idx = tracks.findIndex(t => t.id === state.currentTrackId);
+                const finalIdx = idx !== -1 ? idx : 0;
+                
+                loadVideo(finalIdx, state.currentTime);
+                video.volume = state.volume ?? 1;
+                video.muted = state.muted ?? false;
+                video.playbackRate = state.playbackRate ?? 1;
+                volumeSlider.value = video.volume;
+                speedLabel.textContent = video.playbackRate + 'x';
+                volumeIcon.setAttribute('data-lucide', video.muted ? 'volume-x' : (video.volume < 0.5 ? 'volume-1' : 'volume-2'));
+            } else {
+                loadVideo(0);
+            }
+            lucide.createIcons();
+        });
+
+    </script>
+</body>
+</html>
