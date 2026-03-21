@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>SonicGlass Ultra | Zenith Edition</title>
+    <!-- Modern Icons & Fonts -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary: #00f2fe;
+            --secondary: #4facfe;
+            --accent: #f43f5e;
+            --bg: #020617;
+            --card-bg: rgba(255, 255, 255, 0.03);
+            --border: rgba(255, 255, 255, 0.1);
+            --text-main: #ffffff;
+            --text-dim: #94a3b8;
+            --islander-w: 120px;
+        }
+
+        /* Theme Library */
+        body.theme-nebula { --primary: #8e2de2; --secondary: #4a00e0; --bg: #050214; }
+        body.theme-lava { --primary: #f83600; --secondary: #f9d423; --bg: #0f0505; --accent: #ffffff; }
+        body.theme-emerald { --primary: #00b09b; --secondary: #96c93d; --bg: #020f0a; }
+
+        * {
+            margin: 0; padding: 0; box-sizing: border-box;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+
+        body {
+            background-color: var(--bg);
+            background-image: 
+                radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%), 
+                radial-gradient(at 100% 0%, hsla(225,39%,30%,1) 0, transparent 50%);
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-main);
+            overflow: hidden;
+            transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* DYNAMIC ISLANDER (Notch Support) */
+        .islander-container {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            display: flex;
+            justify-content: center;
+            width: 100%;
+            pointer-events: none;
+        }
+
+        .islander {
+            background: #000;
+            width: var(--islander-w);
+            height: 34px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 15px;
+            transition: all 0.6s cubic-bezier(0.19, 1, 0.22, 1);
+            pointer-events: auto;
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .playing .islander {
+            width: 220px;
+            height: 38px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            border-color: var(--primary);
+        }
+
+        .islander-content {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            white-space: nowrap;
+            opacity: 0;
+            transition: 0.3s;
+        }
+        .playing .islander-content { opacity: 1; }
+
+        .islander-viz {
+            display: flex;
+            gap: 2px;
+            align-items: flex-end;
+            height: 12px;
+        }
+        .islander-viz div {
+            width: 2px;
+            background: var(--primary);
+            border-radius: 1px;
+            animation: island-bounce 0.8s ease-in-out infinite;
+        }
+        @keyframes island-bounce {
+            0%, 100% { height: 4px; }
+            50% { height: 12px; }
+        }
+
+        /* Main Container */
+        .app-shell {
+            width: 100%; height: 100%;
+            max-width: 480px; max-height: 920px;
+            background: var(--card-bg);
+            backdrop-filter: blur(40px) saturate(180%);
+            border: 1px solid var(--border);
+            position: relative;
+            display: flex; flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 50px 100px -20px rgba(0,0,0,0.5);
+            padding-top: env(safe-area-inset-top);
+        }
+
+        @media (min-width: 500px) {
+            .app-shell { border-radius: 50px; height: 90vh; }
+        }
+
+        /* Top Navigation */
+        .header {
+            padding: 30px 30px 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 10;
+        }
+
+        .badge-container { display: flex; gap: 8px; }
+        .badge {
+            background: rgba(255,255,255,0.1);
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.65rem;
+            font-weight: 800;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            border: 1px solid var(--border);
+        }
+        #timer-badge { background: var(--accent); display: none; }
+
+        /* Stage Area (Art + Visuals + Lyrics) */
+        .stage {
+            flex: 1;
+            position: relative;
+            margin: 20px 30px;
+            border-radius: 40px;
+            overflow: hidden;
+            background: #000;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+        }
+
+        .art-layer {
+            width: 100%; height: 100%;
+            object-fit: cover;
+            opacity: 0.4;
+            transition: transform 0.6s ease, filter 0.6s ease;
+        }
+        .playing .art-layer { transform: scale(1.1); filter: brightness(0.6); }
+
+        #visualizer-canvas {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        .lyrics-overlay {
+            position: absolute;
+            inset: 0;
+            z-index: 5;
+            padding: 40px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            overflow-y: hidden;
+            mask-image: linear-gradient(transparent, black 20%, black 80%, transparent);
+            opacity: 0;
+            transform: translateY(20px);
+            transition: 0.4s;
+        }
+        .lyrics-overlay.active { opacity: 1; transform: translateY(0); }
+
+        .lyric-line {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin: 15px 0;
+            color: var(--text-dim);
+            transition: 0.3s;
+        }
+        .lyric-line.active { color: var(--primary); transform: scale(1.15); filter: drop-shadow(0 0 10px var(--primary)); }
+
+        /* Track Info */
+        .track-meta { padding: 0 30px; text-align: center; margin-bottom: 25px; }
+        .track-meta h1 { font-size: 1.5rem; font-weight: 800; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .track-meta p { color: var(--text-dim); font-size: 0.9rem; letter-spacing: 0.5px; }
+
+        /* Progress System */
+        .player-seek { padding: 0 30px; margin-bottom: 30px; }
+        .seek-track {
+            height: 6px; background: rgba(255,255,255,0.05); border-radius: 10px; cursor: pointer; position: relative;
+        }
+        .seek-bar {
+            height: 100%; width: 0%; background: linear-gradient(90deg, var(--primary), var(--secondary));
+            border-radius: 10px; position: relative; box-shadow: 0 0 15px var(--secondary);
+        }
+        .seek-knob {
+            position: absolute; right: -8px; top: -5px; width: 16px; height: 16px;
+            background: white; border-radius: 50%; box-shadow: 0 0 10px rgba(0,0,0,0.5);
+        }
+
+        /* Controls Area */
+        .controls-hub {
+            padding: 0 30px calc(20px + env(safe-area-inset-bottom));
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+        }
+
+        .main-transport {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .play-trigger {
+            width: 80px; height: 80px;
+            background: white; color: black;
+            border-radius: 50%; border: none;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 15px 30px rgba(255,255,255,0.1);
+            transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            cursor: pointer;
+        }
+        .play-trigger:active { transform: scale(0.9); }
+
+        .btn-ghost { background: none; border: none; color: var(--text-dim); cursor: pointer; transition: 0.3s; }
+        .btn-ghost:hover { color: var(--primary); }
+
+        /* Full Screen Drawers */
+        .drawer {
+            position: absolute; inset: 0; z-index: 100;
+            background: rgba(2, 6, 23, 0.98);
+            backdrop-filter: blur(50px);
+            transform: translateY(100%);
+            transition: 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            padding: 40px 30px;
+            display: flex; flex-direction: column;
+        }
+        .drawer.open { transform: translateY(0); }
+
+        .drawer-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .drawer-content { flex: 1; overflow-y: auto; padding-bottom: 40px; }
+
+        /* Lists & EQ Styles */
+        .list-item {
+            padding: 16px; background: rgba(255,255,255,0.03); border-radius: 20px;
+            margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;
+            border: 1px solid transparent; transition: 0.3s; cursor: pointer;
+        }
+        .list-item.active { background: var(--secondary); border-color: var(--primary); }
+
+        .eq-slider { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+        input[type=range] { width: 100%; accent-color: var(--primary); cursor: pointer; }
+
+        /* Utility */
+        .hidden { display: none !important; }
+        .icon-lg { width: 32px; height: 32px; }
+    </style>
+</head>
+<body class="theme-standard">
+
+    <!-- DYNAMIC ISLANDER FOR NOTCH -->
+    <div class="islander-container">
+        <div class="islander" id="island">
+            <div class="islander-content">
+                <div class="islander-viz">
+                    <div style="animation-delay: 0.1s"></div>
+                    <div style="animation-delay: 0.3s"></div>
+                    <div style="animation-delay: 0.2s"></div>
+                </div>
+                <span id="island-text" style="font-size: 0.7rem; font-weight: 700; color: var(--primary);">SonicGlass</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="app-shell" id="main-shell">
+        <!-- Header -->
+        <header class="header">
+            <button class="btn-ghost" onclick="toggleDrawer('theme-drawer')"><i data-lucide="palette"></i></button>
+            <div class="badge-container">
+                <span class="badge" id="timer-badge">00:00</span>
+                <span class="badge">Hi-Res Audio</span>
+            </div>
+            <button class="btn-ghost" onclick="toggleLyrics()"><i data-lucide="languages"></i></button>
+        </header>
+
+        <!-- Visual Stage -->
+        <div class="stage">
+            <div class="lyrics-overlay" id="lyrics-layer">
+                <div id="lyrics-scroll-target"></div>
+            </div>
+            <canvas id="visualizer-canvas"></canvas>
+            <img class="art-layer" id="art-layer" src="https://images.unsplash.com/photo-1614149162883-504ce4d13909?auto=format&fit=crop&w=600&q=80">
+        </div>
+
+        <!-- Meta -->
+        <div class="track-meta">
+            <h1 id="track-title">SonicGlass Ultra</h1>
+            <p id="track-artist">Select a track to begin</p>
+        </div>
+
+        <!-- Seek Bar -->
+        <div class="player-seek">
+            <div class="seek-track" id="seek-container">
+                <div class="seek-bar" id="seek-progress">
+                    <div class="seek-knob"></div>
+                </div>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-top: 10px; font-size: 0.7rem; color: var(--text-dim); font-weight: 600;">
+                <span id="time-curr">0:00</span>
+                <span id="time-total">0:00</span>
+            </div>
+        </div>
+
+        <!-- Hub Controls -->
+        <div class="controls-hub">
+            <div class="main-transport">
+                <button class="btn-ghost" id="shuff-btn"><i data-lucide="shuffle"></i></button>
+                <button class="btn-ghost" onclick="prevTrack()"><i data-lucide="skip-back" class="icon-lg"></i></button>
+                
+                <button class="play-trigger" id="play-btn">
+                    <i data-lucide="play" id="play-icon" style="width:32px; height:32px;"></i>
+                </button>
+                
+                <button class="btn-ghost" onclick="nextTrack()"><i data-lucide="skip-forward" class="icon-lg"></i></button>
+                <button class="btn-ghost" id="rep-btn"><i data-lucide="repeat"></i></button>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <button class="btn-ghost" onclick="toggleDrawer('eq-drawer')"><i data-lucide="sliders"></i></button>
+                <button class="btn-ghost" onclick="toggleDrawer('timer-drawer')"><i data-lucide="clock"></i></button>
+                <button class="btn-ghost" onclick="toggleDrawer('list-drawer')" style="color: var(--primary);"><i data-lucide="list-music"></i></button>
+            </div>
+        </div>
+
+        <!-- DRAWERS -->
+        <div class="drawer" id="list-drawer">
+            <div class="drawer-header">
+                <h2>Library</h2>
+                <button class="btn-ghost" onclick="toggleDrawer('list-drawer')"><i data-lucide="x"></i></button>
+            </div>
+            <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                <button class="btn-ghost" id="scan-btn" style="background: var(--primary); color: black; padding: 12px 20px; border-radius: 15px; font-weight: 800; font-size: 0.8rem; flex: 1;">SCAN LOCAL FOLDER</button>
+                <button class="btn-ghost" id="clear-btn" style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 15px;"><i data-lucide="trash-2"></i></button>
+            </div>
+            <div class="drawer-content" id="playlist-container"></div>
+        </div>
+
+        <div class="drawer" id="eq-drawer">
+            <div class="drawer-header">
+                <h2>Equalizer</h2>
+                <button class="btn-ghost" onclick="toggleDrawer('eq-drawer')"><i data-lucide="x"></i></button>
+            </div>
+            <div class="drawer-content">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 30px;">
+                    <button class="btn-preset active" onclick="setPreset('flat')">Flat</button>
+                    <button class="btn-preset" onclick="setPreset('bass')">Bass Boost</button>
+                    <button class="btn-preset" onclick="setPreset('rock')">Rock</button>
+                    <button class="btn-preset" onclick="setPreset('pop')">Vocal Pop</button>
+                </div>
+                <div id="eq-sliders-root"></div>
+            </div>
+        </div>
+
+        <div class="drawer" id="timer-drawer">
+            <div class="drawer-header">
+                <h2>Sleep Timer</h2>
+                <button class="btn-ghost" onclick="toggleDrawer('timer-drawer')"><i data-lucide="x"></i></button>
+            </div>
+            <div class="drawer-content" style="display: grid; gap: 15px;">
+                <button class="btn-preset" onclick="setSleepTimer(10)">10 Minutes</button>
+                <button class="btn-preset" onclick="setSleepTimer(30)">30 Minutes</button>
+                <button class="btn-preset" onclick="setSleepTimer(60)">1 Hour</button>
+                <button class="btn-preset" onclick="setSleepTimer(0)" style="border-color: var(--accent); color: var(--accent);">Disable Timer</button>
+            </div>
+        </div>
+
+        <div class="drawer" id="theme-drawer">
+            <div class="drawer-header">
+                <h2>Personalization</h2>
+                <button class="btn-ghost" onclick="toggleDrawer('theme-drawer')"><i data-lucide="x"></i></button>
+            </div>
+            <div class="drawer-content" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div class="theme-card" onclick="applyTheme('standard')" style="background: #020617; padding: 30px; border-radius: 20px; border: 2px solid white;">Cyan</div>
+                <div class="theme-card" onclick="applyTheme('nebula')" style="background: #4a00e0; padding: 30px; border-radius: 20px;">Purple</div>
+                <div class="theme-card" onclick="applyTheme('lava')" style="background: #f83600; padding: 30px; border-radius: 20px;">Lava</div>
+                <div class="theme-card" onclick="applyTheme('emerald')" style="background: #00b09b; padding: 30px; border-radius: 20px;">Forest</div>
+            </div>
+        </div>
+    </div>
+
+    <audio id="main-audio" crossorigin="anonymous" preload="auto"></audio>
+
+    <script>
+        lucide.createIcons();
+
+        let db, playlist = [], currentIndex = 0, isPlaying = false;
+        let audioCtx, analyzer, source, isEngineLive = false;
+        let filters = [], timerInterval, lyrics = [];
+        
+        const audio = document.getElementById('main-audio');
+        const playBtn = document.getElementById('play-btn');
+        const canvas = document.getElementById('visualizer-canvas');
+        const ctx = canvas.getContext('2d');
+
+        // 1. DATABASE Persistence
+        const dbReq = indexedDB.open("SonicZenithDB", 1);
+        dbReq.onupgradeneeded = (e) => e.target.result.createObjectStore("songs", { keyPath: "id", autoIncrement: true });
+        dbReq.onsuccess = (e) => { db = e.target.result; syncLibrary(); };
+
+        function syncLibrary() {
+            const store = db.transaction(["songs"], "readonly").objectStore("songs");
+            store.getAll().onsuccess = (e) => {
+                playlist = e.target.result;
+                renderPlaylist();
+            };
+        }
+
+        // 2. BACKGROUND PLAYBACK (MediaSession API)
+        function updateMediaSession(song) {
+            if ('mediaSession' in navigator) {
+                navigator.mediaSession.metadata = new MediaMetadata({
+                    title: song.name.split('.')[0],
+                    artist: 'SonicGlass Ultra',
+                    album: 'Zenith Library',
+                    artwork: [
+                        { src: 'https://images.unsplash.com/photo-1614149162883-504ce4d13909?auto=format&fit=crop&w=512&q=80', sizes: '512x512', type: 'image/jpeg' }
+                    ]
+                });
+
+                navigator.mediaSession.setActionHandler('play', () => audio.play());
+                navigator.mediaSession.setActionHandler('pause', () => audio.pause());
+                navigator.mediaSession.setActionHandler('previoustrack', () => prevTrack());
+                navigator.mediaSession.setActionHandler('nexttrack', () => nextTrack());
+            }
+        }
+
+        // 3. AUDIO ENGINE
+        function startEngine() {
+            if (isEngineLive) return;
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            analyzer = audioCtx.createAnalyser();
+            source = audioCtx.createMediaElementSource(audio);
+
+            const freqs = [60, 250, 1000, 4000, 12000];
+            filters = freqs.map(f => {
+                const filter = audioCtx.createBiquadFilter();
+                filter.type = 'peaking';
+                filter.frequency.value = f;
+                filter.gain.value = 0;
+                return filter;
+            });
+
+            let chain = source;
+            filters.forEach(f => { chain.connect(f); chain = f; });
+            chain.connect(analyzer);
+            analyzer.connect(audioCtx.destination);
+            
+            analyzer.fftSize = 128;
+            isEngineLive = true;
+            createEQSliders();
+            drawFrame();
+        }
+
+        function drawFrame() {
+            requestAnimationFrame(drawFrame);
+            const data = new Uint8Array(analyzer.frequencyBinCount);
+            analyzer.getByteFrequencyData(data);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const barWidth = (canvas.width / data.length) * 2;
+            data.forEach((v, i) => {
+                const h = (v / 255) * canvas.height;
+                const g = ctx.createLinearGradient(0, canvas.height, 0, 0);
+                g.addColorStop(0, getComputedStyle(document.body).getPropertyValue('--secondary'));
+                g.addColorStop(1, getComputedStyle(document.body).getPropertyValue('--primary'));
+                ctx.fillStyle = g;
+                ctx.globalAlpha = 0.6;
+                ctx.fillRect(i * barWidth, canvas.height - h, barWidth - 4, h);
+            });
+        }
+
+        // 4. PLAYER CORE
+        function playTrack(idx) {
+            startEngine();
+            currentIndex = idx;
+            const song = playlist[idx];
+            audio.src = URL.createObjectURL(song.data);
+            document.getElementById('track-title').innerText = song.name.split('.')[0];
+            document.getElementById('island-text').innerText = song.name.split('.')[0].slice(0, 15) + "...";
+            audio.play();
+            updatePlayIcon(true);
+            renderPlaylist();
+            updateMediaSession(song);
+            
+            lyrics = [
+                {t: 0, s: "♪ Intro Playing ♪"},
+                {t: 5, s: "SonicGlass Zenith Loaded"},
+                {t: 10, s: "Background Play Enabled"},
+                {t: 15, s: "Islander Notch Active"}
+            ];
+            renderLyrics();
+        }
+
+        function updatePlayIcon(playing) {
+            isPlaying = playing;
+            document.getElementById('play-icon').setAttribute('data-lucide', playing ? 'pause' : 'play');
+            document.getElementById('main-shell').classList.toggle('playing', playing);
+            document.body.classList.toggle('playing', playing);
+            lucide.createIcons();
+            if ('mediaSession' in navigator) {
+                navigator.mediaSession.playbackState = playing ? 'playing' : 'paused';
+            }
+        }
+
+        playBtn.onclick = () => {
+            if(!playlist.length) return;
+            startEngine();
+            if(audio.paused) audio.play(); else audio.pause();
+        };
+
+        audio.onplay = () => updatePlayIcon(true);
+        audio.onpause = () => updatePlayIcon(false);
+
+        // 5. SCANNING
+        document.getElementById('scan-btn').onclick = async () => {
+            try {
+                const dir = await window.showDirectoryPicker();
+                for await (const entry of dir.values()) {
+                    if (entry.kind === 'file' && /\.(mp3|wav|ogg|flac|m4a)$/i.test(entry.name)) {
+                        const file = await entry.getFile();
+                        const tx = db.transaction(["songs"], "readwrite");
+                        tx.objectStore("songs").add({ name: file.name, data: file });
+                        tx.oncomplete = syncLibrary;
+                    }
+                }
+            } catch(e) {}
+        };
+
+        // UI Helpers
+        window.toggleDrawer = (id) => document.getElementById(id).classList.toggle('open');
+        window.applyTheme = (t) => { document.body.className = 'theme-' + t; toggleDrawer('theme-drawer'); };
+
+        function renderPlaylist() {
+            const root = document.getElementById('playlist-container');
+            root.innerHTML = playlist.map((s, i) => `
+                <div class="list-item ${i === currentIndex ? 'active' : ''}" onclick="playTrack(${i})">
+                    <span style="font-weight:600; font-size:0.85rem">${s.name.slice(0,30)}</span>
+                    <i data-lucide="play-circle" style="width:18px"></i>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        function createEQSliders() {
+            const root = document.getElementById('eq-sliders-root');
+            const labels = ["Bass", "Mid-Bass", "Mids", "High-Mids", "Highs"];
+            root.innerHTML = filters.map((f, i) => `
+                <div class="eq-slider">
+                    <div style="display:flex; justify-content:space-between; font-size:0.7rem"><span>${labels[i]}</span><span id="eq-v-${i}">0dB</span></div>
+                    <input type="range" min="-15" max="15" step="1" value="0" oninput="updateEQ(${i}, this.value)">
+                </div>
+            `).join('');
+        }
+
+        window.updateEQ = (i, v) => { filters[i].gain.value = v; document.getElementById(`eq-v-${i}`).innerText = v + "dB"; };
+
+        window.setSleepTimer = (mins) => {
+            clearInterval(timerInterval);
+            const badge = document.getElementById('timer-badge');
+            if (mins === 0) { badge.style.display = 'none'; return; }
+            badge.style.display = 'block';
+            let target = Date.now() + mins * 60000;
+            timerInterval = setInterval(() => {
+                let diff = target - Date.now();
+                if(diff <= 0) { audio.pause(); clearInterval(timerInterval); badge.style.display = 'none'; }
+                let m = Math.floor(diff/60000), s = Math.floor((diff%60000)/1000);
+                badge.innerText = `${m}:${s < 10 ? '0'+s : s}`;
+            }, 1000);
+            toggleDrawer('timer-drawer');
+        };
+
+        function toggleLyrics() { document.getElementById('lyrics-layer').classList.toggle('active'); }
+        function renderLyrics() { document.getElementById('lyrics-scroll-target').innerHTML = lyrics.map(l => `<div class="lyric-line">${l.s}</div>`).join(''); }
+
+        audio.ontimeupdate = () => {
+            const p = (audio.currentTime / audio.duration) * 100;
+            document.getElementById('seek-progress').style.width = p + '%';
+            document.getElementById('time-curr').innerText = formatT(audio.currentTime);
+            if(audio.duration) document.getElementById('time-total').innerText = formatT(audio.duration);
+            const lines = document.querySelectorAll('.lyric-line');
+            lyrics.forEach((l, i) => {
+                if(audio.currentTime >= l.t) {
+                    lines.forEach(el => el.classList.remove('active'));
+                    if(lines[i]) {
+                        lines[i].classList.add('active');
+                        document.getElementById('lyrics-scroll-target').style.transform = `translateY(-${i * 50}px)`;
+                    }
+                }
+            });
+        };
+
+        function formatT(s) { let m=Math.floor(s/60), sec=Math.floor(s%60); return `${m}:${sec<10?'0'+sec:sec}`; }
+        window.nextTrack = () => playTrack((currentIndex + 1) % playlist.length);
+        window.prevTrack = () => playTrack((currentIndex - 1 + playlist.length) % playlist.length);
+        audio.onended = nextTrack;
+
+        window.onresize = () => { canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight; };
+        window.onresize();
+    </script>
+</body>
+</html>
+
